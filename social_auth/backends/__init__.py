@@ -390,8 +390,7 @@ class BaseAuth(object):
         self.data = request.POST if request.method == 'POST' else request.GET
         self.redirect = redirect
 
-    @property
-    def response(self):
+    def get_response(self):
         """Must return a response for this type of authentication"""
         raise NotImplementedError('Implement in subclass')
 
@@ -449,28 +448,26 @@ class OpenIdAuth(BaseAuth):
         return _setting('OPENID_TRUST_ROOT',
                         self.request.build_absolute_uri('/'))
 
-    @property
-    def response(self):
-        if not hasattr(self, '_response'):
-            self._response = self.consumer().complete(dict(self.data.items()),
+    def get_response(self):
+            return self.consumer().complete(dict(self.data.items()),
                                             self.request.build_absolute_uri())
-        return self._response
 
     def auth_complete(self, *args, **kwargs):
         """Complete auth process"""
-        if not self.response:
+        response = self.get_response()
+        if not response:
             raise ValueError('This is an OpenID relying party endpoint')
-        elif self.response.status == SUCCESS:
-            kwargs.update({'response': self.response, self.AUTH_BACKEND.name: True})
+        elif response.status == SUCCESS:
+            kwargs.update({'response': response, self.AUTH_BACKEND.name: True})
             return authenticate(*args, **kwargs)
-        elif self.response.status == FAILURE:
+        elif response.status == FAILURE:
             raise ValueError('OpenID authentication failed: %s' % \
-                             self.response.message)
-        elif self.response.status == CANCEL:
+                             response.message)
+        elif response.status == CANCEL:
             raise ValueError('Authentication cancelled')
         else:
             raise ValueError('Unknown OpenID response type: %r' % \
-                             self.response.status)
+                             response.status)
 
     def setup_request(self):
         """Setup request"""
@@ -556,29 +553,26 @@ class ConsumerBasedOAuth(BaseOAuth):
         self.request.session[name] = token.to_string()
         return self.oauth_request(token, self.AUTHORIZATION_URL).to_url()
     
-    @property
-    def response(self):
-        if not hasattr(self, '_response'):
-            name = self.AUTH_BACKEND.name + 'unauthorized_token_name'
-            unauthed_token = self.request.session.get(name)
-            if not unauthed_token:
-                raise ValueError('Missing unauthorized token')
-    
-            token = Token.from_string(unauthed_token)
-            if token.key != self.data.get('oauth_token', 'no-token'):
-                raise ValueError('Incorrect tokens')
-    
-            access_token = self.access_token(token)
-            data = self.user_data(access_token)
-            if data is not None:
-                data['access_token'] = access_token.to_string()
-            self._response = data
-        return self._response
+    def get_response(self):
+        name = self.AUTH_BACKEND.name + 'unauthorized_token_name'
+        unauthed_token = self.request.session.get(name)
+        if not unauthed_token:
+            raise ValueError('Missing unauthorized token')
+
+        token = Token.from_string(unauthed_token)
+        if token.key != self.data.get('oauth_token', 'no-token'):
+            raise ValueError('Incorrect tokens')
+
+        access_token = self.access_token(token)
+        data = self.user_data(access_token)
+        if data is not None:
+            data['access_token'] = access_token.to_string()
+        return data
 
     def auth_complete(self, *args, **kwargs):
         """Return user, might be logged in"""
-
-        kwargs.update({'response': self.response, self.AUTH_BACKEND.name: True})
+        response = self.get_response()
+        kwargs.update({'response': response, self.AUTH_BACKEND.name: True})
         return authenticate(*args, **kwargs)
 
     def unauthorized_token(self):
@@ -662,8 +656,7 @@ class BaseOAuth2(BaseOAuth):
                 'response_type': 'code'}  # requesting code
         return self.AUTHORIZATION_URL + '?' + urlencode(args)
 
-    @property
-    def response(self):
+    def get_response(self):
         client_id, client_secret = self.get_key_and_secret()
         params = {'grant_type': 'authorization_code',  # request auth code
                   'code': self.data.get('code', ''),  # server response code
@@ -682,13 +675,13 @@ class BaseOAuth2(BaseOAuth):
     def auth_complete(self, *args, **kwargs):
         """Completes loging process, must return user instance"""
 
-        
-        if self.response.get('error'):
-            error = self.response.get('error_description') or self.response.get('error')
+        response = self.get_response()
+        if response.get('error'):
+            error = response.get('error_description') or response.get('error')
             raise ValueError('OAuth2 authentication failed: %s' % error)
         else:
-            self.response.update(self.user_data(self.response['access_token']) or {})
-            kwargs.update({'response': self.response, self.AUTH_BACKEND.name: True})
+            response.update(self.user_data(response['access_token']) or {})
+            kwargs.update({'response': response, self.AUTH_BACKEND.name: True})
             return authenticate(*args, **kwargs)
 
     def get_scope(self):
