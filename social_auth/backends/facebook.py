@@ -55,32 +55,37 @@ class FacebookAuth(BaseOAuth):
         if hasattr(settings, 'FACEBOOK_EXTENDED_PERMISSIONS'):
             args['scope'] = ','.join(settings.FACEBOOK_EXTENDED_PERMISSIONS)
         return FACEBOOK_AUTHORIZATION_URL + '?' + urllib.urlencode(args)
+    
+    @property
+    def response(self):
+        if not hasattr(self, '_response'):
+            if 'code' in self.data:
+                url = FACEBOOK_ACCESS_TOKEN_URL + '?' + \
+                      urllib.urlencode({'client_id': settings.FACEBOOK_APP_ID,
+                                    'redirect_uri': self.redirect_uri,
+                                    'client_secret': settings.FACEBOOK_API_SECRET,
+                                    'code': self.data['code']})
+                response = cgi.parse_qs(urllib.urlopen(url).read())
+                access_token = response['access_token'][0]
+                self._response = self.user_data(access_token)
+                if self._response is not None:
+                    if 'error' in self._response:
+                        error = self.data.get('error') or 'unknown error'
+                        raise ValueError('Authentication error: %s' % error)
+                    self._response['access_token'] = access_token
+                    # expires will not be part of response if offline access
+                    # premission was requested
+                    if 'expires' in response:
+                        self._response['expires'] = response['expires'][0]
+            else:
+                error = self.data.get('error') or 'unknown error'
+                raise ValueError('Authentication error: %s' % error)
+        return self._response
 
     def auth_complete(self, *args, **kwargs):
         """Returns user, might be logged in"""
-        if 'code' in self.data:
-            url = FACEBOOK_ACCESS_TOKEN_URL + '?' + \
-                  urllib.urlencode({'client_id': settings.FACEBOOK_APP_ID,
-                                'redirect_uri': self.redirect_uri,
-                                'client_secret': settings.FACEBOOK_API_SECRET,
-                                'code': self.data['code']})
-            response = cgi.parse_qs(urllib.urlopen(url).read())
-            access_token = response['access_token'][0]
-            data = self.user_data(access_token)
-            if data is not None:
-                if 'error' in data:
-                    error = self.data.get('error') or 'unknown error'
-                    raise ValueError('Authentication error: %s' % error)
-                data['access_token'] = access_token
-                # expires will not be part of response if offline access
-                # premission was requested
-                if 'expires' in response:
-                    data['expires'] = response['expires'][0]
-            kwargs.update({'response': data, FacebookBackend.name: True})
-            return authenticate(*args, **kwargs)
-        else:
-            error = self.data.get('error') or 'unknown error'
-            raise ValueError('Authentication error: %s' % error)
+        kwargs.update({'response': self.response, FacebookBackend.name: True})
+        return authenticate(*args, **kwargs)
 
     def user_data(self, access_token):
         """Loads user data from service"""
