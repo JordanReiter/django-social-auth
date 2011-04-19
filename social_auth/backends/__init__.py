@@ -390,7 +390,8 @@ class BaseAuth(object):
         self.data = request.POST if request.method == 'POST' else request.GET
         self.redirect = redirect
 
-    def get_response(self):
+    @property
+    def response(self):
         """Must return a response for this type of authentication"""
         raise NotImplementedError('Implement in subclass')
 
@@ -448,13 +449,16 @@ class OpenIdAuth(BaseAuth):
         return _setting('OPENID_TRUST_ROOT',
                         self.request.build_absolute_uri('/'))
 
-    def get_response(self):
-            return self.consumer().complete(dict(self.data.items()),
+    @property
+    def response(self):
+        if not hasattr(self, '_response'):
+            self._response = self.consumer().complete(dict(self.data.items()),
                                             self.request.build_absolute_uri())
+        return self._response
 
     def auth_complete(self, *args, **kwargs):
         """Complete auth process"""
-        response = self.get_response()
+        response = self.response
         if not response:
             raise ValueError('This is an OpenID relying party endpoint')
         elif response.status == SUCCESS:
@@ -553,25 +557,27 @@ class ConsumerBasedOAuth(BaseOAuth):
         self.request.session[name] = token.to_string()
         return self.oauth_request(token, self.AUTHORIZATION_URL).to_url()
     
-    def get_response(self):
-        name = self.AUTH_BACKEND.name + 'unauthorized_token_name'
-        unauthed_token = self.request.session.get(name)
-        if not unauthed_token:
-            raise ValueError('Missing unauthorized token')
-
-        token = Token.from_string(unauthed_token)
-        if token.key != self.data.get('oauth_token', 'no-token'):
-            raise ValueError('Incorrect tokens')
-
-        access_token = self.access_token(token)
-        data = self.user_data(access_token)
-        if data is not None:
-            data['access_token'] = access_token.to_string()
-        return data
+    @property
+    def response(self):
+        if not hasattr(self, '_response'):
+            name = self.AUTH_BACKEND.name + 'unauthorized_token_name'
+            unauthed_token = self.request.session.get(name)
+            if not unauthed_token:
+                raise ValueError('Missing unauthorized token')
+    
+            token = Token.from_string(unauthed_token)
+            if token.key != self.data.get('oauth_token', 'no-token'):
+                raise ValueError('Incorrect tokens')
+    
+            access_token = self.access_token(token)
+            self._response = self.user_data(access_token)
+            if self._response is not None:
+                self._response['access_token'] = access_token.to_string()
+        return self._response
 
     def auth_complete(self, *args, **kwargs):
         """Return user, might be logged in"""
-        response = self.get_response()
+        response = self.response
         kwargs.update({'response': response, self.AUTH_BACKEND.name: True})
         return authenticate(*args, **kwargs)
 
@@ -656,26 +662,29 @@ class BaseOAuth2(BaseOAuth):
                 'response_type': 'code'}  # requesting code
         return self.AUTHORIZATION_URL + '?' + urlencode(args)
 
-    def get_response(self):
-        client_id, client_secret = self.get_key_and_secret()
-        params = {'grant_type': 'authorization_code',  # request auth code
-                  'code': self.data.get('code', ''),  # server response code
-                  'client_id': client_id,
-                  'client_secret': client_secret,
-                  'redirect_uri': self.redirect_uri}
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        request = Request(self.ACCESS_TOKEN_URL, data=urlencode(params),
-                          headers=headers)
-
-        try:
-            return simplejson.loads(urlopen(request).read())
-        except (ValueError, KeyError):
-            raise ValueError('Unknown OAuth2 response type')
+    @property
+    def response(self):
+        if not hasattr(self, '_response'):
+            client_id, client_secret = self.get_key_and_secret()
+            params = {'grant_type': 'authorization_code',  # request auth code
+                      'code': self.data.get('code', ''),  # server response code
+                      'client_id': client_id,
+                      'client_secret': client_secret,
+                      'redirect_uri': self.redirect_uri}
+            headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+            request = Request(self.ACCESS_TOKEN_URL, data=urlencode(params),
+                              headers=headers)
+    
+            try:
+                self._response = simplejson.loads(urlopen(request).read())
+            except (ValueError, KeyError):
+                raise ValueError('Unknown OAuth2 response type')
+        return self._response
 
     def auth_complete(self, *args, **kwargs):
         """Completes loging process, must return user instance"""
 
-        response = self.get_response()
+        response = self.response
         if response.get('error'):
             error = response.get('error_description') or response.get('error')
             raise ValueError('OAuth2 authentication failed: %s' % error)
