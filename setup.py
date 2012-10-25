@@ -15,6 +15,7 @@ implements a common interface to define new authentication providers from
 third parties.
 """
 
+
 def long_description():
     """Return long description from README.rst if it's present
     because it doesn't get installed."""
@@ -29,12 +30,15 @@ setup(name='django-social-auth',
       author='Matías Aguirre',
       author_email='matiasaguirre@gmail.com',
       description='Django social authentication made simple.',
-      license='GPL',
+      license='BSD',
       keywords='django, openid, oauth, social auth, application',
       url='https://github.com/omab/django-social-auth',
       packages=['social_auth',
                 'social_auth.backends',
-                'social_auth.backends.contrib'],
+                'social_auth.backends.contrib',
+                'social_auth.backends.pipeline',
+                'social_auth.db'],
+      package_data={'social_auth': ['locale/*/LC_MESSAGES/*']},
       long_description=long_description(),
       install_requires=['django>=1.2.5',
                         'oauth2>=1.5.167',
@@ -42,7 +46,7 @@ setup(name='django-social-auth',
       classifiers=['Framework :: Django',
                    'Development Status :: 4 - Beta',
                    'Topic :: Internet',
-                   'License :: OSI Approved :: GNU General Public License (GPL)',
+                   'License :: OSI Approved :: BSD License',
                    'Intended Audience :: Developers',
                    'Environment :: Web Environment',
                    'Programming Language :: Python :: 2.5',

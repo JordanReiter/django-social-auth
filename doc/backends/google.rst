@@ -7,22 +7,20 @@ Google.
 Google OAuth
 ------------
 
-Google provides **Consumer Key** and **Consumer Secret** keys to
-registered applications, but also allows unregistered application to
-use their authorization system with, but beware that this method
-will display a security banner to the user telling that the application
-is not trusted.
+Google provides ``Consumer Key`` and ``Consumer Secret`` keys to registered
+applications, but also allows unregistered application to use their authorization
+system with, but beware that this method will display a security banner to the
+user telling that the application is not trusted.
 
 Check `Google OAuth`_ and make your choice.
 
-- fill **Consumer Key** and **Consumer Secret** values::
+- fill ``Consumer Key`` and ``Consumer Secret`` values::
 
       GOOGLE_CONSUMER_KEY
       GOOGLE_CONSUMER_SECRET
 
 anonymous values will be used if not configured as described in their
 `OAuth reference`_
-
 
 - configure the display name to be used in the *grant permissions* dialog
   that Google will display to users in::
@@ -35,46 +33,75 @@ anonymous values will be used if not configured as described in their
 
       GOOGLE_OAUTH_EXTRA_SCOPE = [...]
 
+- Supply a list of Google Apps account domain strings to be checked. The default (empty list) allows all domains.  If a list is provided and a user attempts to sign in with a Google account that is not in the list, then a ValueError will be raised and the user will be redirected to your login error page::
+
+    GOOGLE_WHITE_LISTED_DOMAINS = ['mygoogleappsdomain.com']
+
+- Supply a list of Google Apps or Gmail email strings to be checked::
+
+    GOOGLE_WHITE_LISTED_EMAILS = ['me@mygoogleappsdomain.com', 'you@gmail.com']
+
 Check which applications can be included in their `Google Data Protocol Directory`_
 
 
 Google OAuth2
 -------------
 
-Recently Google launched OAuth2 support following the definition at
-`OAuth2 draft`. It works in a similar way to plain OAuth mechanism, but
-developers **must** register an application and apply for a set of keys. Check
-`Google OAuth2`_ document for details.
+Recently Google launched OAuth2 support following the definition at `OAuth2 draft`.
+It works in a similar way to plain OAuth mechanism, but developers **must** register
+an application and apply for a set of keys. Check `Google OAuth2`_ document for details.
 
 **Note**:
-  This support is experimental as Google implementation may change and 
-  OAuth2 is still a draft.
+  This support is experimental as Google implementation may change and OAuth2 is still
+  a draft.
 
 To enable OAuth2 support:
 
-- fill **Client Key** and **Client Secret** settings, these values can be obtained
+- fill ``Client ID`` and ``Client Secret`` settings, these values can be obtained
   easily as described on `OAuth2 Registering`_ doc::
 
-      GOOGLE_OAUTH2_CLIENT_KEY = ''
+      GOOGLE_OAUTH2_CLIENT_ID = ''
       GOOGLE_OAUTH2_CLIENT_SECRET = ''
+
+  previous name ``GOOGLE_OAUTH2_CLIENT_KEY`` is supported for backward
+  compatibility.
 
 - scopes are shared between OAuth mechanisms::
 
       GOOGLE_OAUTH_EXTRA_SCOPE = [...]
 
+- optional support for static and unique Google Profile ID identifiers instead of
+  using the e-mail address for account association can be enabled with::
+
+      GOOGLE_OAUTH2_USE_UNIQUE_USER_ID = True
+
 Check which applications can be included in their `Google Data Protocol Directory`_
+
+
+Google OpenID
+-------------
+
+Configurable settings:
+
+- Supply a list of Google Apps account domain strings to be checked::
+
+    GOOGLE_WHITE_LISTED_DOMAINS = ['mygoogleappsdomain.com']
+
+- Supply a list of Google Apps or Gmail email strings to be checked::
+
+    GOOGLE_WHITE_LISTED_EMAILS = ['me@mygoogleappsdomain.com', 'you@gmail.com']
 
 
 Orkut
 -----
 
-Orkut offers per application keys named **Consumer Key** and
-**Consumer Secret**. To enable Orkut these two keys are needed.
+Orkut offers per application keys named ``Consumer Key`` and ``Consumer Secret``.
+To enable Orkut these two keys are needed.
 
 Check `Google support`_ and `Orkut API`_ for details on getting
 your consumer_key and consumer_secret keys.
 
-- fill **Consumer Key** and **Consumer Secret** values::
+- fill ``Consumer Key`` and ``Consumer Secret`` values::
 
       ORKUT_CONSUMER_KEY
       ORKUT_CONSUMER_SECRET

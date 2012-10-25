@@ -1,7 +1,7 @@
 """Signals"""
 from django.dispatch import Signal
 
-# Pre save signal
+# Pre update signal
 #   This signal is sent when user instance is about to be updated with
 #   new values from services provided. This way custom actions can be
 #   attached and values updated if needed before the saving time.
