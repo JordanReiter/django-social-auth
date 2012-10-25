@@ -107,11 +107,7 @@ class FacebookAuth(BaseOAuth2):
                 except HTTPError:
                     raise AuthFailed(self, 'There was an error authenticating '
                                            'the app')
-    
-                access_token = self._response['access_token'][0]
-                if 'expires' in self._response:
-                    expires = self._response['expires'][0]
-    
+        
             if 'signed_request' in self.data:
                 self._response = load_signed_request(self.data.get('signed_request'),
                                                backend_setting(
@@ -125,13 +121,18 @@ class FacebookAuth(BaseOAuth2):
 
         access_token = None
         response = self.response
-        if response is not None:
-            access_token = response.get('access_token') or \
-                           response.get('oauth_token') or \
-                           self.data.get('access_token')
-
+        if 'code' in self.data:
+            access_token = self.response['access_token'][0]
             if 'expires' in self._response:
-                expires = response['expires']
+                expires = self.response['expires'][0]
+        if 'signed_request' in self.data:
+            if response is not None:
+                access_token = response.get('access_token') or \
+                               response.get('oauth_token') or \
+                               self.data.get('access_token')
+    
+                if 'expires' in self._response:
+                    expires = response['expires']
 
         if access_token:
             data = self.user_data(access_token)
